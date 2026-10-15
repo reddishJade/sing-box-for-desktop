@@ -133,7 +133,10 @@ jobs:
             rustc --version
             zig version
           } > release/build-provenance.txt
-          mv "$package" "${package%-x64.deb}-amd64.deb"
+          # Upstream may already normalize Electron's x64 name to amd64.
+          if [[ "$package" == *-x64.deb ]]; then
+            mv "$package" "${package%-x64.deb}-amd64.deb"
+          fi
           cd release
           sha256sum ./*.deb > SHA256SUMS.txt
 
