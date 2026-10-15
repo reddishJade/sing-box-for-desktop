@@ -1,0 +1,80 @@
+name: Follow SFL and reF1nd upstreams
+
+on:
+  schedule:
+    # Daily at 06:17 Singapore time (22:17 UTC).
+    - cron: '17 22 * * *'
+  workflow_dispatch:
+    inputs:
+      force_build:
+        description: Build even if neither upstream changed
+        type: boolean
+        default: true
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sync-sfl-ref1nd
+  cancel-in-progress: false
+
+jobs:
+  sync:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: write
+    outputs:
+      revision: ${{ steps.sync.outputs.revision }}
+      changed: ${{ steps.sync.outputs.changed }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: Merge SFL upstream and update the reF1nd revision
+        id: sync
+        shell: bash
+        run: |
+          set -euo pipefail
+          before="$(git rev-parse HEAD)"
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git remote add sfl-upstream https://github.com/SagerNet/sing-box-for-desktop.git
+          git fetch sfl-upstream main
+          # A conflict fails the job; never overwrite our customization or force-push.
+          git merge --no-edit sfl-upstream/main
+          python3 - <<'PY'
+          import json, re, subprocess
+          from pathlib import Path
+          path = Path('ref1nd-core.json')
+          core = json.loads(path.read_text())
+          assert core['repository'] == 'reF1nd/sing-box'
+          assert core['branch'] == 'reF1nd-testing'
+          remote = subprocess.check_output([
+              'git', 'ls-remote', 'https://github.com/reF1nd/sing-box.git',
+              'refs/heads/' + core['branch'],
+          ], text=True).split()
+          assert len(remote) == 2 and re.fullmatch('[0-9a-f]{40}', remote[0])
+          core['revision'] = remote[0]
+          path.write_text(json.dumps(core, indent=2) + '\n')
+          PY
+          git add ref1nd-core.json
+          if ! git diff --cached --quiet; then
+            git commit -m 'Update pinned reF1nd core'
+          fi
+          after="$(git rev-parse HEAD)"
+          if [[ "$before" != "$after" ]]; then
+            git push origin HEAD:main
+            echo 'changed=true' >> "$GITHUB_OUTPUT"
+          else
+            echo 'changed=false' >> "$GITHUB_OUTPUT"
+          fi
+          echo "revision=$after" >> "$GITHUB_OUTPUT"
+
+  build:
+    needs: sync
+    if: needs.sync.outputs.changed == 'true' || inputs.force_build == true
+    uses: ./.github/workflows/ref1nd-linux-amd64.yml
+    with:
+      desktop_ref: ${{ needs.sync.outputs.revision }}

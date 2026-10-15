@@ -1,31 +1,43 @@
 # SFL with the reF1nd core
 
-The `SFL reF1nd Linux amd64 deb` Actions workflow builds only the Linux
-amd64 Debian package. It uses the existing desktop packaging command:
+This fork follows two upstreams:
+
+- Desktop: `SagerNet/sing-box-for-desktop`, branch `main`
+- Core: `reF1nd/sing-box`, branch `reF1nd-testing`
+
+The **Follow SFL and reF1nd upstreams** Actions workflow checks both daily
+at 06:17 Singapore time. It merges desktop changes into `main`, records the
+current core commit in `ref1nd-core.json`, and builds a new Linux amd64 deb
+when either upstream changes. It can also be run manually, including a forced
+build when neither source changed. Merge conflicts stop the workflow for review;
+upstream synchronization never force-pushes.
+
+The reusable **SFL reF1nd Linux amd64 deb** workflow builds only:
 
 ```sh
 pnpm package:linux:deb x64
 ```
 
-The desktop source is checked out beside `reF1nd/sing-box`, pinned to
-`78ea0ce9257bd3bedd4d1185d6cc4723f04096b4` from `reF1nd-testing`.
-The existing scripts generate the desktop and dashboard RPC bindings from
-that core and compile `experimental/boxdd` into `sing-box-daemon`.
-The ordinary sing-box CLI is not substituted for the desktop daemon.
+The desktop source is checked out beside the pinned core. Existing scripts
+generate desktop and dashboard RPC bindings from that core and compile
+`experimental/boxdd` into `sing-box-daemon`. The ordinary sing-box CLI is
+not substituted for the desktop daemon.
 
-Run the workflow from the Actions tab on branch `ref1nd-linux-amd64`.
-It also runs when that branch receives a push. Download the
-`SFL-ref1nd-linux-amd64` artifact after the workflow succeeds. It contains:
+Download the `SFL-ref1nd-linux-amd64` artifact from a successful run. It contains:
 
-- `SFL-1.14.3-ref1nd.1-amd64.deb`
+- `SFL-<upstream-version>-ref1nd.<UTC-build-timestamp>-amd64.deb`
 - SHA256 checksums, source revisions and core module build information
-- A matching command line binary for checking configurations
+- A matching command line binary for local configuration validation
 
-The workflow verifies the Debian architecture, compares the packaged daemon
-against the compiled daemon, checks for reF1nd dependencies in its Go build
-information, and provides a matching CLI for local configuration validation.
-It does not publish a release or install anything on the local computer.
+The build verifies the Debian architecture, compares the packaged daemon
+against the compiled daemon, and checks for reF1nd dependencies in its Go
+build information. Personal configurations and derived examples are not included
+in the repository or the build inputs.
 
-This package keeps upstream's application identity and service paths, so it
-replaces the installed original SFL. Back up existing profiles before installing.
+The package keeps upstream's application identity and service paths, replacing
+the original SFL when installed. Building does not install it locally or publish
+a GitHub release. Artifacts are retained for 30 days.
 
+The chosen reF1nd branch tracks the current desktop daemon API. Future upstream
+API or toolchain changes may require a build fix; failures remain visible in
+Actions instead of producing an unchecked package.
