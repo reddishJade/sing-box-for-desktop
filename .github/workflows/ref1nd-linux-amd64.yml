@@ -54,6 +54,7 @@ jobs:
               print('desktop_revision=' + core['desktop_revision'], file=output)
               print('core_version=' + core['tag'].removeprefix('v'), file=output)
           PY
+          cp .github/scripts/apply-sfl-compat.py "$RUNNER_TEMP/apply-sfl-compat.py"
 
       - name: Check out the desktop source from the stable release
         uses: actions/checkout@v4
@@ -71,6 +72,9 @@ jobs:
           ref: ${{ steps.core.outputs.revision }}
           path: sing-box
           fetch-depth: 0
+
+      - name: Align the Linux daemon with the SFL installation
+        run: python3 "$RUNNER_TEMP/apply-sfl-compat.py" "$GITHUB_WORKSPACE/sing-box"
 
       - name: Read toolchain versions
         id: versions
@@ -143,6 +147,7 @@ jobs:
             echo "desktop=$(git rev-parse HEAD)"
             echo "core_repository=https://github.com/reF1nd/sing-box"
             echo "core=$(git -C ../sing-box rev-parse HEAD)"
+            echo "desktop_compatibility=official-SFL-service-paths-and-policy"
             echo "dashboard=$(git -C dashboard rev-parse HEAD)"
             go version
             node --version

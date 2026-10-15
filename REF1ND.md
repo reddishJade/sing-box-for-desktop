@@ -23,6 +23,9 @@ generate desktop and dashboard RPC bindings from that core and compile
 `experimental/boxdd` into `sing-box-daemon`. The ordinary sing-box CLI is
 not substituted for the desktop daemon.
 
+The core's Linux daemon service name, working directory and PolicyKit action
+IDs are aligned with the official SFL package's installed systemd unit and policy.
+
 Download the `SFL-ref1nd-linux-amd64` artifact from a successful run. It contains:
 
 - `SFL-<upstream-version>+ref1nd.<UTC-build-timestamp>-amd64.deb`
