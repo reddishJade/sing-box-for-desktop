@@ -2,15 +2,15 @@
 
 This fork follows two upstreams:
 
-- Desktop: `SagerNet/sing-box-for-desktop`, branch `main`
-- Core: `reF1nd/sing-box`, branch `reF1nd-testing`
+- Desktop: the desktop commit pinned by the paired stable SagerNet release
+- Core: `reF1nd/sing-box`, stable tags `vX.Y.Z-reF1nd`
 
 The **Follow SFL and reF1nd upstreams** Actions workflow checks both daily
-at 06:00 Singapore time. It merges desktop changes into `main`, records the
-current core commit in `ref1nd-core.json`, and builds a new Linux amd64 deb
-when either upstream changes. It can also be run manually, including a forced
-build when neither source changed. Merge conflicts stop the workflow for review;
-upstream synchronization never force-pushes.
+at 06:00 Singapore time. It resolves the newest stable reF1nd tag and its matching stable SagerNet release,
+records both source commits in `ref1nd-core.json`, and builds a new Linux amd64 deb
+when the paired stable release changes. Desktop `main` and core `testing` are not
+used as build sources. It can also be run manually, including a forced
+build when neither source changed. A missing or prerelease upstream pair stops the workflow; synchronization never force-pushes.
 
 The reusable **SFL reF1nd Linux amd64 deb** workflow builds only:
 
@@ -38,6 +38,6 @@ The package keeps upstream's application identity and service paths, replacing
 the original SFL when installed. Building does not install it locally or publish
 a GitHub release. Artifacts are retained for 30 days.
 
-The chosen reF1nd branch tracks the current desktop daemon API. Future upstream
+The build verifies the exact stable daemon version. Future upstream
 API or toolchain changes may require a build fix; failures remain visible in
 Actions instead of producing an unchecked package.

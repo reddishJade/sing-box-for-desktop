@@ -45,10 +45,24 @@ jobs:
           import json, os, re
           core = json.load(open('ref1nd-core.json'))
           assert core['repository'] == 'reF1nd/sing-box'
+          assert core['branch'] == 'reF1nd-stable'
+          assert re.fullmatch(r'v\d+\.\d+\.\d+-reF1nd', core['tag'])
           assert re.fullmatch('[0-9a-f]{40}', core['revision'])
+          assert re.fullmatch('[0-9a-f]{40}', core['desktop_revision'])
           with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
               print('revision=' + core['revision'], file=output)
+              print('desktop_revision=' + core['desktop_revision'], file=output)
+              print('core_version=' + core['tag'].removeprefix('v'), file=output)
           PY
+
+      - name: Check out the desktop source from the stable release
+        uses: actions/checkout@v4
+        with:
+          repository: SagerNet/sing-box-for-desktop
+          ref: ${{ steps.core.outputs.desktop_revision }}
+          path: desktop
+          submodules: recursive
+          fetch-depth: 0
 
       - name: Check out the pinned reF1nd core
         uses: actions/checkout@v4
@@ -110,6 +124,8 @@ jobs:
         run: pnpm package:linux:deb x64
 
       - name: Verify the package and record provenance
+        env:
+          EXPECTED_CORE_VERSION: ${{ steps.core.outputs.core_version }}
         run: |
           set -euo pipefail
           mapfile -t packages < <(find release -maxdepth 1 -name '*.deb')
@@ -119,7 +135,8 @@ jobs:
           dpkg-deb --extract "$package" "$RUNNER_TEMP/sfl-package"
           installed="$RUNNER_TEMP/sfl-package/opt/sing-box/resources/daemon/sing-box-daemon"
           cmp bin/sing-box-daemon "$installed"
-          "$installed" version
+          "$installed" version | tee release/core-version.txt
+          grep -Fx "sing-box-daemon version $EXPECTED_CORE_VERSION" release/core-version.txt
           go version -m "$installed" > release/core-build-info.txt
           grep -F 'github.com/reF1nd/sing' release/core-build-info.txt
           {
@@ -142,9 +159,11 @@ jobs:
 
       - name: Build the matching command line validator
         working-directory: sing-box
+        env:
+          CORE_VERSION: ${{ steps.core.outputs.core_version }}
         run: |
           go build -trimpath -tags "$(cat release/DEFAULT_BUILD_TAGS_OTHERS)" \
-            -ldflags '-checklinkname=0 -s -w' \
+            -ldflags "-checklinkname=0 -s -w -X github.com/sagernet/sing-box/constant.Version=$CORE_VERSION" \
             -o ../desktop/release/sing-box-ref1nd-linux-amd64 ./cmd/sing-box
 
       - uses: actions/upload-artifact@v4
@@ -156,5 +175,6 @@ jobs:
             desktop/release/*.deb
             desktop/release/SHA256SUMS.txt
             desktop/release/core-build-info.txt
+            desktop/release/core-version.txt
             desktop/release/build-provenance.txt
             desktop/release/sing-box-ref1nd-linux-amd64

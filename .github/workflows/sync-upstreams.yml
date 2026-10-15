@@ -32,33 +32,17 @@ jobs:
           ref: main
           fetch-depth: 0
 
-      - name: Merge SFL upstream and update the reF1nd revision
+      - name: Resolve paired stable SFL and reF1nd releases
         id: sync
+        env:
+          GH_TOKEN: ${{ github.token }}
         shell: bash
         run: |
           set -euo pipefail
           before="$(git rev-parse HEAD)"
           git config user.name 'github-actions[bot]'
           git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
-          git remote add sfl-upstream https://github.com/SagerNet/sing-box-for-desktop.git
-          git fetch sfl-upstream main
-          # A conflict fails the job; never overwrite our customization or force-push.
-          git merge --no-edit sfl-upstream/main
-          python3 - <<'PY'
-          import json, re, subprocess
-          from pathlib import Path
-          path = Path('ref1nd-core.json')
-          core = json.loads(path.read_text())
-          assert core['repository'] == 'reF1nd/sing-box'
-          assert core['branch'] == 'reF1nd-testing'
-          remote = subprocess.check_output([
-              'git', 'ls-remote', 'https://github.com/reF1nd/sing-box.git',
-              'refs/heads/' + core['branch'],
-          ], text=True).split()
-          assert len(remote) == 2 and re.fullmatch('[0-9a-f]{40}', remote[0])
-          core['revision'] = remote[0]
-          path.write_text(json.dumps(core, indent=2) + '\n')
-          PY
+          python3 .github/scripts/update-stable.py
           git add ref1nd-core.json
           if ! git diff --cached --quiet; then
             git commit -m 'Update pinned reF1nd core'
