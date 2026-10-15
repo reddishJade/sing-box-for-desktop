@@ -1,0 +1,138 @@
+name: SFL reF1nd Linux amd64 deb
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [ref1nd-linux-amd64]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: sfl-ref1nd-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  deb:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 90
+    env:
+      RUSTUP_TOOLCHAIN: '1.88.0'
+      # The package builder selects the non-CGO release tags when CC is empty.
+      CC: ''
+      CXX: ''
+    defaults:
+      run:
+        shell: bash
+        working-directory: desktop
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          path: desktop
+          submodules: recursive
+          fetch-depth: 0
+
+      - name: Check out the pinned reF1nd core
+        uses: actions/checkout@v4
+        with:
+          repository: reF1nd/sing-box
+          ref: 78ea0ce9257bd3bedd4d1185d6cc4723f04096b4
+          path: sing-box
+          fetch-depth: 0
+
+      - name: Read toolchain versions
+        id: versions
+        run: |
+          python3 - <<'PY'
+          import json, os
+          app = json.load(open('package.json'))
+          version = json.load(open('version.json'))
+          with open(os.environ['GITHUB_OUTPUT'], 'a') as output:
+              print('node=' + app['engines']['node'], file=output)
+              print('go=' + version['go_version'].removeprefix('go'), file=output)
+          version['version'] += '-ref1nd.1'
+          with open('version.json', 'w') as output:
+              json.dump(version, output, indent=2)
+              output.write('\n')
+          PY
+
+      - uses: pnpm/action-setup@v4
+        with:
+          package_json_file: desktop/package.json
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ steps.versions.outputs.node }}
+          cache: pnpm
+          cache-dependency-path: |
+            desktop/pnpm-lock.yaml
+            desktop/dashboard/pnpm-lock.yaml
+
+      - uses: actions/setup-go@v5
+        with:
+          go-version: ${{ steps.versions.outputs.go }}
+          cache-dependency-path: sing-box/go.sum
+
+      - name: Set up native module tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y build-essential pkg-config libwayland-dev libxkbcommon-dev
+          rustup toolchain install "$RUSTUP_TOOLCHAIN" --profile minimal --no-self-update
+          rustup target add --toolchain "$RUSTUP_TOOLCHAIN" x86_64-unknown-linux-gnu
+
+      - uses: mlugg/setup-zig@v2
+        with:
+          version: 0.15.2
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Build only the Linux amd64 deb
+        run: pnpm package:linux:deb x64
+
+      - name: Verify the package and record provenance
+        run: |
+          set -euo pipefail
+          mapfile -t packages < <(find release -maxdepth 1 -name '*.deb')
+          test "${#packages[@]}" -eq 1
+          package="${packages[0]}"
+          test "$(dpkg-deb -f "$package" Architecture)" = amd64
+          dpkg-deb --extract "$package" "$RUNNER_TEMP/sfl-package"
+          installed="$RUNNER_TEMP/sfl-package/opt/sing-box/resources/daemon/sing-box-daemon"
+          cmp bin/sing-box-daemon "$installed"
+          "$installed" version
+          go version -m "$installed" > release/core-build-info.txt
+          grep -F 'github.com/reF1nd/sing' release/core-build-info.txt
+          {
+            echo "desktop=$(git rev-parse HEAD)"
+            echo "core_repository=https://github.com/reF1nd/sing-box"
+            echo "core=$(git -C ../sing-box rev-parse HEAD)"
+            echo "dashboard=$(git -C dashboard rev-parse HEAD)"
+            go version
+            node --version
+            pnpm --version
+            rustc --version
+            zig version
+          } > release/build-provenance.txt
+          mv "$package" "${package%-x64.deb}-amd64.deb"
+          cd release
+          sha256sum ./*.deb > SHA256SUMS.txt
+
+      - name: Build the matching command line validator
+        working-directory: sing-box
+        run: |
+          go build -trimpath -tags "$(cat release/DEFAULT_BUILD_TAGS_OTHERS)" \
+            -ldflags '-checklinkname=0 -s -w' \
+            -o ../desktop/release/sing-box-ref1nd-linux-amd64 ./cmd/sing-box
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: SFL-ref1nd-linux-amd64
+          if-no-files-found: error
+          retention-days: 30
+          path: |
+            desktop/release/*.deb
+            desktop/release/SHA256SUMS.txt
+            desktop/release/core-build-info.txt
+            desktop/release/build-provenance.txt
+            desktop/release/sing-box-ref1nd-linux-amd64
