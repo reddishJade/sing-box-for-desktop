@@ -6,7 +6,7 @@ This fork follows two upstreams:
 - Core: `reF1nd/sing-box`, branch `reF1nd-testing`
 
 The **Follow SFL and reF1nd upstreams** Actions workflow checks both daily
-at 06:17 Singapore time. It merges desktop changes into `main`, records the
+at 06:00 Singapore time. It merges desktop changes into `main`, records the
 current core commit in `ref1nd-core.json`, and builds a new Linux amd64 deb
 when either upstream changes. It can also be run manually, including a forced
 build when neither source changed. Merge conflicts stop the workflow for review;

@@ -2,8 +2,8 @@ name: Follow SFL and reF1nd upstreams
 
 on:
   schedule:
-    # Daily at 06:17 Singapore time (22:17 UTC).
-    - cron: '17 22 * * *'
+    # Daily at 06:00 Singapore time (22:00 UTC).
+    - cron: '0 22 * * *'
   workflow_dispatch:
     inputs:
       force_build:
