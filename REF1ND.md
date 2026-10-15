@@ -25,7 +25,7 @@ not substituted for the desktop daemon.
 
 Download the `SFL-ref1nd-linux-amd64` artifact from a successful run. It contains:
 
-- `SFL-<upstream-version>-ref1nd.<UTC-build-timestamp>-amd64.deb`
+- `SFL-<upstream-version>+ref1nd.<UTC-build-timestamp>-amd64.deb`
 - SHA256 checksums, source revisions and core module build information
 - A matching command line binary for local configuration validation
 

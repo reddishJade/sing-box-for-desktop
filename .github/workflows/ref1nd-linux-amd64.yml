@@ -83,7 +83,7 @@ jobs:
               print('node=' + app['engines']['node'], file=output)
               print('go=' + version['go_version'].removeprefix('go'), file=output)
           stamp = datetime.datetime.now(datetime.timezone.utc).strftime('%Y%m%d%H%M%S')
-          version['version'] += '-ref1nd.' + stamp
+          version['version'] += '+ref1nd.' + stamp
           with open('version.json', 'w') as output:
               json.dump(version, output, indent=2)
               output.write('\n')
